@@ -1,2 +1,2 @@
 # practicalmachinelearning
-Project practical machine learning. Coursera data science specialitacion
+Project practical machine learning. Coursera data science specialitacion.
