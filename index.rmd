@@ -1,0 +1,98 @@
+---
+title: "Course Project - Practical Machine Learning"
+author: "DavidFerLozano"
+date: "Friday, February 26, 2016"
+output: html_document
+---
+
+#Introduction
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement – a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways.
+
+#Load Library
+```{r}
+library(caret)
+library(rpart)
+library(randomForest)
+```
+#Read Data
+
+```{r}
+trainingRaw <- read.csv("./Data/pml-training.csv")
+testingRaw <- read.csv("./Data/pml-testing.csv")
+dim(trainingRaw)
+dim(testingRaw)
+```
+The training data set contains 19622 observations and 160 variables, while the testing data set contains 20 observations and 160 variables.
+
+#Preparation Data
+
+Remove columns that contain NA missing values.
+```{r}
+trainingRaw <- trainingRaw[, colSums(is.na(trainingRaw)) == 0] 
+testingRaw <- testingRaw[, colSums(is.na(testingRaw)) == 0] 
+```
+
+get rid of some columns that do not contribute much to the accelerometer measurements.
+
+```{r}
+classe <- trainingRaw$classe
+trainingRemove <- grepl("^X|timestamp|window", names(trainingRaw))
+trainingRaw <- trainingRaw[, !trainingRemove]
+trainingCleaned <- trainingRaw[, sapply(trainingRaw, is.numeric)]
+trainingCleaned$classe <- classe
+testingRemove <- grepl("^X|timestamp|window", names(testingRaw))
+testingRaw <- testingRaw[, !testingRemove]
+testingCleaned <- testingRaw[, sapply(testingRaw, is.numeric)]
+
+dim(trainingCleaned)
+dim(testingCleaned)
+```
+
+
+Now, the cleaned training data set contains 19622 observations and 53 variables, while the testing data set contains 20 observations and 53 variables. 
+
+#Partition the data
+
+Partition training data cleaned into two sets. One for training (70%) and one for cross validation (30%).
+
+```{r}
+set.seed(12345) 
+inTrain <- createDataPartition(trainingCleaned$classe, p=0.70, list=F)
+trainData <- trainingCleaned[inTrain, ]
+testData <- trainingCleaned[-inTrain, ]
+```
+
+
+#Data Modeling
+
+Create random forest model, using cross-validation. We will use 5-fold cross validation when applying the algorithm.
+
+```{r}
+control.model <- trainControl(method="cv", 5)
+model <- train(classe ~ ., data=trainData, method="rf", trControl=control.model, ntree=100)
+model
+```
+
+
+Then, we estimate the performance of the model on the validation data set.
+```{r}
+predict <- predict(model, testData)
+confusionMatrix(testData$classe, predict)
+
+accuracy <- postResample(predict, testData$classe)
+accuracy
+
+outofsampleerror <- 1 - as.numeric(confusionMatrix(testData$classe, predict)$overall[1])
+outofsampleerror
+```
+
+So, the estimated accuracy of the model is 98.79% and the estimated out-of-sample error is 0.12%. 
+
+#Predicting for Test Data Set
+
+Now, we apply the model to the original testing data set downloaded from the data source. 
+```{r}
+result <- predict(model, testingCleaned[, -length(names(testingCleaned))])
+result
+```
+
